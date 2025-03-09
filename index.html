@@ -181,12 +181,8 @@
         }
 
         @keyframes rotateBadge {
-            from {
-                transform: rotate(0deg);
-            }
-            to {
-                transform: rotate(360deg);
-            }
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
         }
 
         .new-badge span {
@@ -234,7 +230,7 @@
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
             transition: transform 0.3s ease, box-shadow 0.3s ease;
             font-size: 14px;
-            display: block; /* Always visible, auth on click */
+            display: block;
         }
 
         .add-btn:hover {
@@ -658,7 +654,6 @@
             }
         }
 
-        // Load data from Google Sheets CSV
         async function loadProjects() {
             try {
                 const response = await fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vQQiUVzkIpKs1u5-ZwXJsmi1apJvRaX97cP8sI1AFGmG7R9ga2hESKWnaBDsOuCeXOM09HARizfNjTv/pub?output=csv');
@@ -694,16 +689,16 @@
                         project[header] = row[index] ? row[index].replace(/^"|"$/g, '').trim() : '';
                     });
                     return {
-                        name: project['Project Name'],
+                        name: project['Project Name'] || '',
                         completed: project['Daily Status'] === 'TRUE',
                         rating: parseInt(project['Ratings']) || 0,
-                        website: project['Website'],
-                        mainTask: project['Main Task'],
-                        extraTask: project['Extra Task'],
-                        fundings: project['Fundings'],
-                        investment: project['Investment'],
-                        faucet: project['F.Cet'],
-                        comments: project['Comm'],
+                        website: project['Website'] || '',
+                        mainTask: project['Main Task'] || '',
+                        extraTask: project['Extra Task'] || '',
+                        fundings: project['Fundings'] || '',
+                        investment: project['Investment'] || '',
+                        faucet: project['F.Cet'] || '',
+                        comments: project['Comm'] || '',
                         newBadge: project['New Badge'] === 'TRUE'
                     };
                 });
@@ -814,7 +809,7 @@
                 })
             }).then(() => {
                 console.log('Save request sent successfully');
-                setTimeout(loadProjects, 1000);
+                setTimeout(loadProjects, 500);
             }).catch(error => console.error('Fetch Error:', error));
         }
 
@@ -825,18 +820,32 @@
                 return;
             }
             const formData = new FormData(e.target);
-            const project = {
-                'Project Name': formData.get('name'),
+            const newProject = {
+                name: formData.get('name'),
+                completed: false,
+                rating: getRating(),
+                website: formData.get('website'),
+                mainTask: formData.get('mainTask'),
+                extraTask: formData.get('extraTask'),
+                fundings: formData.get('fundings'),
+                investment: formData.get('investment'),
+                faucet: formData.get('faucet'),
+                comments: formData.get('comments'),
+                newBadge: formData.get('newBadge') === 'on'
+            };
+
+            const projectForSheet = {
+                'Project Name': newProject.name,
                 'Daily Status': 'FALSE',
-                'Ratings': getRating(),
-                'Website': formData.get('website'),
-                'Main Task': formData.get('mainTask'),
-                'Extra Task': formData.get('extraTask'),
-                'Fundings': formData.get('fundings'),
-                'Investment': formData.get('investment'),
-                'F.Cet': formData.get('faucet'),
-                'Comm': formData.get('comments'),
-                'New Badge': formData.get('newBadge') === 'on' ? 'TRUE' : 'FALSE'
+                'Ratings': newProject.rating,
+                'Website': newProject.website,
+                'Main Task': newProject.mainTask,
+                'Extra Task': newProject.extraTask,
+                'Fundings': newProject.fundings,
+                'Investment': newProject.investment,
+                'F.Cet': newProject.faucet,
+                'Comm': newProject.comments,
+                'New Badge': newProject.newBadge ? 'TRUE' : 'FALSE'
             };
 
             const url = 'https://script.google.com/macros/s/AKfycbx0bEvA17UgZIgKIYjrIextrwcmfY3sGiwiD-EDXsXXAj8wr1pqPlW5QyO0lwA5THW06Q/exec';
@@ -844,11 +853,13 @@
                 method: 'POST',
                 mode: 'no-cors',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'add', project })
+                body: JSON.stringify({ action: 'add', project: projectForSheet })
             }).then(() => {
                 console.log('Add request sent successfully');
+                projects.push(newProject); // Add to local array for immediate UI update
+                renderTable();
                 hideModal();
-                setTimeout(loadProjects, 1000);
+                setTimeout(loadProjects, 500); // Sync with sheet in background
             }).catch(error => console.error('Fetch Error:', error));
         });
 
@@ -875,6 +886,8 @@
 
         function deleteProject(index) {
             const url = 'https://script.google.com/macros/s/AKfycbx0bEvA17UgZIgKIYjrIextrwcmfY3sGiwiD-EDXsXXAj8wr1pqPlW5QyO0lwA5THW06Q/exec';
+            projects.splice(index, 1); // Remove from local array immediately
+            renderTable(); // Update UI immediately
             fetch(url, {
                 method: 'POST',
                 mode: 'no-cors',
@@ -882,7 +895,7 @@
                 body: JSON.stringify({ action: 'delete', index: index + 1 })
             }).then(() => {
                 console.log('Delete request sent successfully');
-                setTimeout(loadProjects, 1000);
+                setTimeout(loadProjects, 500); // Sync with sheet in background
             }).catch(error => console.error('Fetch Error:', error));
         }
 
