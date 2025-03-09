@@ -616,7 +616,7 @@
         // Save to Google Sheets (via script)
         function saveProject(index) {
             const project = projects[index];
-            const url = 'https://script.google.com/macros/s/AKfycbzdrqcN0jV85YPXmiE9-v_I-hObXmNRt5RhA5a3f5E-b_0My7NyoWpV8pTVr5eF6ILY8A/exec';
+            const url = 'https://script.google.com/macros/s/AKfycbyE9GHsLptUJ59QLYaFDwn81JVn1f0LB9JUnfIeFba7zG1V32U6Di7Buktsh1H3eEW_8w/exec';
             fetch(url, {
                 method: 'POST',
                 mode: 'cors',
@@ -629,7 +629,17 @@
                     index: index,
                     project: project
                 })
-            }).catch(error => console.error('Error:', error));
+            }).then(response => {
+                console.log('Save Response:', response);
+                return response.json();
+            })
+              .then(data => {
+                  console.log('Save Data:', data);
+                  if (data.status !== 'success') {
+                      console.error('Error from Apps Script:', data.message);
+                  }
+              })
+              .catch(error => console.error('Fetch Error:', error));
         }
 
         document.getElementById('projectForm').addEventListener('submit', async (e) => {
@@ -649,7 +659,7 @@
                 'New Badge': formData.get('newBadge') === 'on'
             };
 
-            const url = 'https://script.google.com/macros/s/AKfycbzdrqcN0jV85YPXmiE9-v_I-hObXmNRt5RhA5a3f5E-b_0My7NyoWpV8pTVr5eF6ILY8A/exec';
+            const url = 'https://script.google.com/macros/s/AKfycbyE9GHsLptUJ59QLYaFDwn81JVn1f0LB9JUnfIeFba7zG1V32U6Di7Buktsh1H3eEW_8w/exec';
             fetch(url, {
                 method: 'POST',
                 mode: 'cors',
@@ -661,36 +671,24 @@
                     action: 'add',
                     project: project
                 })
-            }).then(response => response.json())
+            }).then(response => {
+                console.log('Add Response:', response);
+                return response.json();
+            })
               .then(data => {
+                  console.log('Add Data:', data);
                   if (data.status === 'success') {
                       hideModal();
                       loadProjects(); // Refresh data
                   } else {
                       console.error('Error from Apps Script:', data.message);
                   }
-              }).catch(error => console.error('Error:', error));
+              })
+              .catch(error => console.error('Fetch Error:', error));
         });
 
-        function editProject(index) {
-            editIndex = index;
-            const project = projects[index];
-            showModal();
-            const form = document.getElementById('projectForm');
-            form.name.value = project.name;
-            form.website.value = project.website;
-            form.mainTask.value = project.mainTask;
-            form.extraTask.value = project.extraTask || '';
-            form.fundings.value = project.fundings || '';
-            form.investment.value = project.investment;
-            form.faucet.value = project.faucet || '';
-            form.comments.value = project.comments || '';
-            form.newBadge.checked = project.newBadge;
-            setRating(project.rating);
-        }
-
         function deleteProject(index) {
-            const url = 'https://script.google.com/macros/s/AKfycbzdrqcN0jV85YPXmiE9-v_I-hObXmNRt5RhA5a3f5E-b_0My7NyoWpV8pTVr5eF6ILY8A/exec';
+            const url = 'https://script.google.com/macros/s/AKfycbyE9GHsLptUJ59QLYaFDwn81JVn1f0LB9JUnfIeFba7zG1V32U6Di7Buktsh1H3eEW_8w/exec';
             fetch(url, {
                 method: 'POST',
                 mode: 'cors',
@@ -702,14 +700,19 @@
                     action: 'delete',
                     index: index
                 })
-            }).then(response => response.json())
+            }).then(response => {
+                console.log('Delete Response:', response);
+                return response.json();
+            })
               .then(data => {
+                  console.log('Delete Data:', data);
                   if (data.status === 'success') {
                       loadProjects();
                   } else {
                       console.error('Error from Apps Script:', data.message);
                   }
-              }).catch(error => console.error('Error:', error));
+              })
+              .catch(error => console.error('Fetch Error:', error));
         }
 
         const stars = document.querySelectorAll('#ratingInput .star');
