@@ -590,8 +590,8 @@
                 <div class="form-group">
                     <label><input type="checkbox" name="newBadge"> Add New Badge</label>
                 </div>
-                <div class="form-group">
-                    <button type="submit">Add Project</button>
+                <div class="form-group" id="submitButtonGroup">
+                    <button type="submit" id="submitButton">Add Project</button>
                 </div>
             </form>
         </div>
@@ -617,6 +617,7 @@
     <script>
         let projects = [];
         let isAuthorized = false;
+        let editIndex = -1;
         const SECRET_KEY = '852096@Rishu'; // Your secret key
 
         function togglePassword() {
@@ -647,11 +648,19 @@
                 feedback.style.display = 'block';
                 feedback.textContent = 'Authentication successful!';
                 feedback.className = 'auth-feedback';
+                resetForm();
             } else {
                 feedback.style.display = 'block';
                 feedback.textContent = 'Incorrect key! Please try again.';
                 feedback.className = 'auth-feedback error';
             }
+        }
+
+        function resetForm() {
+            document.getElementById('projectForm').reset();
+            resetRating();
+            editIndex = -1;
+            document.getElementById('submitButton').textContent = 'Add Project';
         }
 
         async function loadProjects() {
@@ -779,9 +788,8 @@
         function hideModal() {
             document.getElementById('addModal').style.display = 'none';
             document.getElementById('authModal').style.display = 'none';
+            resetForm();
         }
-
-        let editIndex = -1;
 
         function saveProject(index) {
             const project = projects[index];
@@ -819,6 +827,7 @@
                 alert('Please authorize first!');
                 return;
             }
+
             const formData = new FormData(e.target);
             const newProject = {
                 name: formData.get('name'),
@@ -849,27 +858,42 @@
             };
 
             const url = 'https://script.google.com/macros/s/AKfycbx0bEvA17UgZIgKIYjrIextrwcmfY3sGiwiD-EDXsXXAj8wr1pqPlW5QyO0lwA5THW06Q/exec';
-            fetch(url, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'add', project: projectForSheet })
-            }).then(() => {
-                console.log('Add request sent successfully');
-                projects.push(newProject); // Add to local array for immediate UI update
-                renderTable();
-                hideModal();
-                setTimeout(loadProjects, 500); // Sync with sheet in background
-            }).catch(error => console.error('Fetch Error:', error));
+            if (editIndex === -1) {
+                fetch(url, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'add', project: projectForSheet })
+                }).then(() => {
+                    console.log('Add request sent successfully');
+                    projects.push(newProject);
+                    renderTable();
+                    hideModal();
+                    setTimeout(loadProjects, 500);
+                }).catch(error => console.error('Fetch Error:', error));
+            } else {
+                fetch(url, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'update', index: editIndex + 1, project: projectForSheet })
+                }).then(() => {
+                    console.log('Update request sent successfully');
+                    projects[editIndex] = newProject;
+                    renderTable();
+                    hideModal();
+                    setTimeout(loadProjects, 500);
+                }).catch(error => console.error('Fetch Error:', error));
+            }
         });
 
         function editProject(index) {
-            editIndex = index;
-            const project = projects[index];
             if (!isAuthorized) {
                 showAuthModal();
                 return;
             }
+            editIndex = index;
+            const project = projects[index];
             document.getElementById('addModal').style.display = 'flex';
             document.getElementById('projectForm').reset();
             document.querySelector('input[name="name"]').value = project.name;
@@ -882,12 +906,13 @@
             document.querySelector('input[name="comments"]').value = project.comments;
             document.querySelector('input[name="newBadge"]').checked = project.newBadge;
             setRating(project.rating);
+            document.getElementById('submitButton').textContent = 'Save';
         }
 
         function deleteProject(index) {
+            projects.splice(index, 1);
+            renderTable();
             const url = 'https://script.google.com/macros/s/AKfycbx0bEvA17UgZIgKIYjrIextrwcmfY3sGiwiD-EDXsXXAj8wr1pqPlW5QyO0lwA5THW06Q/exec';
-            projects.splice(index, 1); // Remove from local array immediately
-            renderTable(); // Update UI immediately
             fetch(url, {
                 method: 'POST',
                 mode: 'no-cors',
@@ -895,7 +920,7 @@
                 body: JSON.stringify({ action: 'delete', index: index + 1 })
             }).then(() => {
                 console.log('Delete request sent successfully');
-                setTimeout(loadProjects, 500); // Sync with sheet in background
+                setTimeout(loadProjects, 500);
             }).catch(error => console.error('Fetch Error:', error));
         }
 
