@@ -506,37 +506,71 @@
         © 2025 Airdrop Tracker | Built with ❤️ for Crypto Enthusiasts
     </footer>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tabletop.js/1.6.1/tabletop.min.js"></script>
     <script>
         let projects = [];
 
-        // Load data from Google Sheets
-        function loadProjects() {
-            Tabletop.init({
-                key: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQQiUVzkIpKs1u5-ZwXJsmi1apJvRaX97cP8sI1AFGmG7R9ga2hESKWnaBDsOuCeXOM09HARizfNjTv/pubhtml',
-                callback: function(data, tabletop) {
-                    if (data && data.length > 0) {
-                        projects = data.map(row => ({
-                            name: row['Project Name'],
-                            completed: row['Daily Status'] === 'true',
-                            rating: parseInt(row['Ratings']) || 0,
-                            website: row['Website'],
-                            mainTask: row['Main Task'],
-                            extraTask: row['Extra Task'],
-                            fundings: row['Fundings'],
-                            investment: row['Investment'],
-                            faucet: row['F.Cet'],
-                            comments: row['Comm'],
-                            newBadge: row['New Badge'] === 'true'
-                        }));
-                        renderTable();
-                    } else {
-                        console.error('No data loaded from Google Sheets');
+        // Load data from Google Sheets CSV
+        async function loadProjects() {
+            try {
+                const response = await fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vQQiUVzkIpKs1u5-ZwXJsmi1apJvRaX97cP8sI1AFGmG7R9ga2hESKWnaBDsOuCeXOM09HARizfNjTv/pub?output=csv');
+                const csvText = await response.text();
+                console.log('Raw CSV data:', csvText); // Debug log
+
+                // Parse CSV manually
+                const rows = csvText.trim().split('\n').map(row => {
+                    // Handle commas within fields by splitting carefully
+                    const values = [];
+                    let currentValue = '';
+                    let insideQuotes = false;
+
+                    for (let i = 0; i < row.length; i++) {
+                        const char = row[i];
+                        if (char === '"') {
+                            insideQuotes = !insideQuotes;
+                        } else if (char === ',' && !insideQuotes) {
+                            values.push(currentValue.trim());
+                            currentValue = '';
+                        } else {
+                            currentValue += char;
+                        }
                     }
-                },
-                simpleSheet: true
-            }).then(() => console.log('Tabletop initialized'))
-              .catch(error => console.error('Tabletop Error:', error));
+                    values.push(currentValue.trim());
+                    return values;
+                });
+
+                // Get headers
+                const headers = rows[0].map(header => header.replace(/^"|"$/g, '').trim());
+                console.log('Headers:', headers); // Debug log
+
+                // Get data rows (skip header row)
+                const dataRows = rows.slice(1);
+                console.log('Data rows:', dataRows); // Debug log
+
+                projects = dataRows.map(row => {
+                    const project = {};
+                    headers.forEach((header, index) => {
+                        project[header] = row[index] ? row[index].replace(/^"|"$/g, '').trim() : '';
+                    });
+                    return {
+                        name: project['Project Name'],
+                        completed: project['Daily Status'] === 'TRUE',
+                        rating: parseInt(project['Ratings']) || 0,
+                        website: project['Website'],
+                        mainTask: project['Main Task'],
+                        extraTask: project['Extra Task'],
+                        fundings: project['Fundings'],
+                        investment: project['Investment'],
+                        faucet: project['F.Cet'],
+                        comments: project['Comm'],
+                        newBadge: project['New Badge'] === 'TRUE'
+                    };
+                });
+
+                console.log('Mapped projects:', projects); // Debug log
+                renderTable();
+            } catch (error) {
+                console.error('Error loading projects:', error);
+            }
         }
 
         function updateProgress() {
@@ -618,24 +652,35 @@
 
         let editIndex = -1;
 
-        // Save to Google Sheets (via script)
         function saveProject(index) {
             const project = projects[index];
             const url = 'https://script.google.com/macros/s/AKfycbx0bEvA17UgZIgKIYjrIextrwcmfY3sGiwiD-EDXsXXAj8wr1pqPlW5QyO0lwA5THW06Q/exec';
             fetch(url, {
                 method: 'POST',
-                mode: 'no-cors', // CORS bypass
+                mode: 'no-cors',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
                     action: 'update',
-                    index: index,
-                    project: project
+                    index: index + 1, // Adjust for header row
+                    project: {
+                        'Project Name': project.name,
+                        'Daily Status': project.completed ? 'TRUE' : 'FALSE',
+                        'Ratings': project.rating,
+                        'Website': project.website,
+                        'Main Task': project.mainTask,
+                        'Extra Task': project.extraTask,
+                        'Fundings': project.fundings,
+                        'Investment': project.investment,
+                        'F.Cet': project.faucet,
+                        'Comm': project.comments,
+                        'New Badge': project.newBadge ? 'TRUE' : 'FALSE'
+                    }
                 })
             }).then(() => {
                 console.log('Save request sent successfully');
-                loadProjects(); // Refresh data without waiting for response
+                setTimeout(loadProjects, 1000); // Delay to ensure sheet updates
             }).catch(error => console.error('Fetch Error:', error));
         }
 
@@ -644,7 +689,7 @@
             const formData = new FormData(e.target);
             const project = {
                 'Project Name': formData.get('name'),
-                'Daily Status': false,
+                'Daily Status': 'FALSE',
                 'Ratings': getRating(),
                 'Website': formData.get('website'),
                 'Main Task': formData.get('mainTask'),
@@ -653,13 +698,13 @@
                 'Investment': formData.get('investment'),
                 'F.Cet': formData.get('faucet'),
                 'Comm': formData.get('comments'),
-                'New Badge': formData.get('newBadge') === 'on'
+                'New Badge': formData.get('newBadge') === 'on' ? 'TRUE' : 'FALSE'
             };
 
             const url = 'https://script.google.com/macros/s/AKfycbx0bEvA17UgZIgKIYjrIextrwcmfY3sGiwiD-EDXsXXAj8wr1pqPlW5QyO0lwA5THW06Q/exec';
             fetch(url, {
                 method: 'POST',
-                mode: 'no-cors', // CORS bypass
+                mode: 'no-cors',
                 headers: {
                     'Content-Type': 'application/json',
                 },
@@ -670,25 +715,41 @@
             }).then(() => {
                 console.log('Add request sent successfully');
                 hideModal();
-                loadProjects(); // Refresh data
+                setTimeout(loadProjects, 1000); // Delay to ensure sheet updates
             }).catch(error => console.error('Fetch Error:', error));
         });
+
+        function editProject(index) {
+            editIndex = index;
+            const project = projects[index];
+            showModal();
+            document.querySelector('input[name="name"]').value = project.name;
+            document.querySelector('textarea[name="website"]').value = project.website;
+            document.querySelector('textarea[name="mainTask"]').value = project.mainTask;
+            document.querySelector('textarea[name="extraTask"]').value = project.extraTask;
+            document.querySelector('input[name="fundings"]').value = project.fundings;
+            document.querySelector('select[name="investment"]').value = project.investment;
+            document.querySelector('input[name="faucet"]').value = project.faucet;
+            document.querySelector('input[name="comments"]').value = project.comments;
+            document.querySelector('input[name="newBadge"]').checked = project.newBadge;
+            setRating(project.rating);
+        }
 
         function deleteProject(index) {
             const url = 'https://script.google.com/macros/s/AKfycbx0bEvA17UgZIgKIYjrIextrwcmfY3sGiwiD-EDXsXXAj8wr1pqPlW5QyO0lwA5THW06Q/exec';
             fetch(url, {
                 method: 'POST',
-                mode: 'no-cors', // CORS bypass
+                mode: 'no-cors',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
                     action: 'delete',
-                    index: index
+                    index: index + 1 // Adjust for header row
                 })
             }).then(() => {
                 console.log('Delete request sent successfully');
-                loadProjects();
+                setTimeout(loadProjects, 1000); // Delay to ensure sheet updates
             }).catch(error => console.error('Fetch Error:', error));
         }
 
