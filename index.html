@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Airdrop Tracker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #e6f0fa, #f5f7fa);
+            min-height: 100vh;
+            padding: 0;
+            color: #333;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        .background-art {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.1;
+            pointer-events: none;
+        }
+
+        header {
+            background: #fff;
+            padding: 10px 20px;
+            box-shadow: 0 2px 15px rgba(0, 0, 0, 0.05);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        header h1 {
+            font-size: 24px;
+            color: #1a73e8;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .airdrop-emoji {
+            width: 24px;
+            height: 24px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 20px auto;
+            padding: 0 15px;
+        }
+
+        .progress-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 30px 0;
+            position: relative;
+        }
+
+        .circular-progress {
+            width: 180px;
+            height: 180px;
+            background: #fff;
+            border-radius: 50%;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+            position: relative;
+            z-index: 1;
+        }
+
+        .circular-progress svg {
+            transform: rotate(-90deg);
+        }
+
+        .circle-bg {
+            fill: none;
+            stroke: #e0e0e0;
+            stroke-width: 14;
+        }
+
+        .circle-progress {
+            fill: none;
+            stroke: url(#gradient);
+            stroke-width: 14;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.7s ease;
+        }
+
+        .progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .progress-fraction {
+            font-size: 28px;
+            font-weight: bold;
+            color: #1a73e8;
+        }
+
+        .progress-percent {
+            font-size: 18px;
+            color: #777;
+            margin-top: 6px;
+        }
+
+        .table-container {
+            background: #fff;
+            border-radius: 15px;
+            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.05);
+            overflow-x: auto;
+            max-height: 60vh;
+            overflow-y: auto;
+            scrollbar-width: thin;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1000px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #f0f0f0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        th {
+            background: #fafafa;
+            font-weight: 600;
+            color: #555;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        td {
+            position: relative;
+            transition: background 0.3s ease;
+            max-width: 120px;
+        }
+
+        tr:hover td {
+            background: #f8faff;
+        }
+
+        .new-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            overflow: hidden;
+            z-index: 2;
+        }
+
+        .new-badge-inner {
+            width: 100%;
+            height: 100%;
+            background: #ff5252;
+            animation: rotateBadge 4s linear infinite;
+        }
+
+        @keyframes rotateBadge {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .new-badge span {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 9px;
+            color: white;
+            text-shadow: 0 0 2px rgba(255, 255, 255, 0.8);
+            z-index: 3;
+        }
+
+        .task-link {
+            color: #1a73e8;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .task-link:hover {
+            color: #1557b0;
+        }
+
+        .action-btn {
+            cursor: pointer;
+            margin: 0 5px;
+            font-size: 18px;
+            transition: transform 0.2s ease;
+        }
+
+        .action-btn:hover {
+            transform: scale(1.2);
+        }
+
+        .add-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            padding: 12px 25px;
+            background: linear-gradient(45deg, #1a73e8, #00ddeb);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            font-size: 14px;
+        }
+
+        .add-btn:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .modal-content {
+            background: #fff;
+            padding: 20px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 450px;
+            max-height: 80vh;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+            position: relative;
+            animation: slideIn 0.3s ease;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 24px;
+            cursor: pointer;
+            color: #777;
+            transition: color 0.3s ease;
+        }
+
+        .close-btn:hover {
+            color: #333;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #444;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+            border-color: #1a73e8;
+            outline: none;
+        }
+
+        .rating {
+            display: flex;
+            gap: 8px;
+        }
+
+        .star {
+            cursor: pointer;
+            font-size: 24px;
+            color: #ddd;
+            transition: color 0.2s ease;
+        }
+
+        .star.filled {
+            color: #ffd700;
+        }
+
+        .form-group button {
+            width: 100%;
+            padding: 12px;
+            background: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s ease;
+        }
+
+        .form-group button:hover {
+            background: #1557b0;
+        }
+
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #777;
+            font-size: 12px;
+            margin-top: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .container { padding: 0 10px; }
+            .modal-content { width: 95%; padding: 15px; }
+            .circular-progress { width: 140px; height: 140px; }
+            .progress-fraction { font-size: 22px; }
+            .progress-percent { font-size: 14px; }
+            .add-btn { bottom: 15px; right: 15px; padding: 10px 20px; font-size: 12px; }
+            th, td { padding: 8px; font-size: 12px; max-width: 100px; }
+            .table-container { max-height: 50vh; }
+            .new-badge { width: 24px; height: 24px; top: -6px; right: -6px; }
+            .new-badge span { font-size: 8px; }
+            .airdrop-emoji { width: 20px; height: 20px; }
+            .action-btn { font-size: 16px; margin: 0 3px; }
+        }
+
+        @media (max-width: 480px) {
+            header h1 { font-size: 20px; }
+            .table-container { max-height: 40vh; }
+        }
+    </style>
+</head>
+<body>
+    <svg class="background-art" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900">
+        <path fill="#1a73e8" opacity="0.2" d="M300,200 Q400,100 500,200 T700,200 Q800,300 900,200 T1100,200" />
+        <circle cx="200" cy="600" r="50" fill="#00ddeb" opacity="0.15" />
+        <circle cx="1200" cy="300" r="70" fill="#ff5252" opacity="0.1" />
+        <text x="100" y="100" font-size="80" opacity="0.3">💰</text>
+        <text x="1300" y="800" font-size="80" opacity="0.3">🪙</text>
+    </svg>
+
+    <header>
+        <div class="container">
+            <h1>
+                <img src="https://cdn-icons-png.flaticon.com/512/10296/10296115.png" alt="Airdrop Emoji" class="airdrop-emoji">
+                Airdrop Tracker
+            </h1>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="progress-container">
+            <div class="circular-progress">
+                <svg width="180" height="180">
+                    <defs>
+                        <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" style="stop-color:#1a73e8" />
+                            <stop offset="100%" style="stop-color:#00ddeb" />
+                        </linearGradient>
+                    </defs>
+                    <circle class="circle-bg" cx="90" cy="90" r="80"></circle>
+                    <circle class="circle-progress" cx="90" cy="90" r="80" stroke-dasharray="502.4" stroke-dashoffset="502.4"></circle>
+                </svg>
+                <div class="progress-text">
+                    <div class="progress-fraction">0/0</div>
+                    <div class="progress-percent">0%</div>
+                </div>
+            </div>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Project Name</th>
+                        <th>Daily Status</th>
+                        <th>Ratings</th>
+                        <th>Website</th>
+                        <th>Main Task</th>
+                        <th>Extra Task</th>
+                        <th>Fundings</th>
+                        <th>Investment</th>
+                        <th>F.Cet</th>
+                        <th>Comm</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="projectTable"></tbody>
+            </table>
+        </div>
+        <button class="add-btn" onclick="showModal()">Add New Project</button>
+    </div>
+
+    <div class="modal" id="addModal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="hideModal()">×</span>
+            <form id="projectForm">
+                <div class="form-group">
+                    <label>Project Name</label>
+                    <input type="text" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label>Website</label>
+                    <textarea name="website" placeholder="Enter website details" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Main Task (Task:Link or Details)</label>
+                    <textarea name="mainTask" placeholder="Enter task details or Task:Link" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Extra Task (Task:Link or Details)</label>
+                    <textarea name="extraTask" placeholder="Enter task details or Task:Link"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Fundings</label>
+                    <input type="text" name="fundings">
+                </div>
+                <div class="form-group">
+                    <label>Investment</label>
+                    <select name="investment">
+                        <option value="free">Free</option>
+                        <option value="paid">Paid</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Faucet (Faucet:Link or Text)</label>
+                    <input type="text" name="faucet" placeholder="Enter Faucet:Link or text">
+                </div>
+                <div class="form-group">
+                    <label>Comments</label>
+                    <input type="text" name="comments" placeholder="Enter comments">
+                </div>
+                <div class="form-group">
+                    <label>Rating</label>
+                    <div class="rating" id="ratingInput">
+                        <span class="star" data-value="1">★</span>
+                        <span class="star" data-value="2">★</span>
+                        <span class="star" data-value="3">★</span>
+                        <span class="star" data-value="4">★</span>
+                        <span class="star" data-value="5">★</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label><input type="checkbox" name="newBadge"> Add New Badge</label>
+                </div>
+                <div class="form-group">
+                    <button type="submit">Add Project</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <footer>
+        © 2025 Airdrop Tracker | Built with ❤️ for Crypto Enthusiasts
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tabletop.js/1.6.1/tabletop.min.js"></script>
+    <script>
+        let projects = [];
+
+        // Load data from Google Sheets
+        function loadProjects() {
+            Tabletop.init({
+                key: 'https://docs.google.com/spreadsheets/d/1hMTbsdiFJKqPzJGM0dscVncgxaRDZ4GsFKeEKuwivCQ/pubhtml',
+                callback: function(data, tabletop) {
+                    projects = data.map(row => ({
+                        name: row['Project Name'],
+                        completed: row['Daily Status'] === 'true',
+                        rating: parseInt(row['Ratings']) || 0,
+                        website: row['Website'],
+                        mainTask: row['Main Task'],
+                        extraTask: row['Extra Task'],
+                        fundings: row['Fundings'],
+                        investment: row['Investment'],
+                        faucet: row['F.Cet'],
+                        comments: row['Comm'],
+                        newBadge: row['New Badge'] === 'true'
+                    }));
+                    renderTable();
+                },
+                simpleSheet: true
+            });
+        }
+
+        function updateProgress() {
+            const total = projects.length;
+            const completed = projects.filter(p => p.completed).length;
+            const circle = document.querySelector('.circle-progress');
+            const fractionText = document.querySelector('.progress-fraction');
+            const percentText = document.querySelector('.progress-percent');
+            
+            const circumference = 502.4;
+            const percent = total ? (completed / total) * 100 : 0;
+            const offset = circumference - (percent / 100) * circumference;
+
+            circle.style.strokeDashoffset = offset;
+            fractionText.textContent = `${completed}/${total}`;
+            percentText.textContent = `${Math.round(percent)}%`;
+
+            animateNumber(fractionText, completed);
+        }
+
+        function animateNumber(element, target) {
+            let start = 0;
+            const duration = 1000;
+            const step = timestamp => {
+                if (!start) start = timestamp;
+                const progress = Math.min((timestamp - start) / duration, 1);
+                const current = Math.floor(progress * target);
+                element.textContent = `${current}/${projects.length}`;
+                if (progress < 1) requestAnimationFrame(step);
+            };
+            requestAnimationFrame(step);
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('projectTable');
+            tbody.innerHTML = '';
+            projects.forEach((project, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td style="position: relative;">
+                        ${project.name}
+                        ${project.newBadge ? '<div class="new-badge"><div class="new-badge-inner"></div><span>NEW</span></div>' : ''}
+                    </td>
+                    <td><input type="checkbox" ${project.completed ? 'checked' : ''} onchange="toggleComplete(${index})"></td>
+                    <td>${'★'.repeat(project.rating).padEnd(5, '☆')}</td>
+                    <td>${project.website || '-'}</td>
+                    <td>${project.mainTask || '-'}</td>
+                    <td>${project.extraTask || '-'}</td>
+                    <td>${project.fundings || '-'}</td>
+                    <td>${project.investment || '-'}</td>
+                    <td>${project.faucet || '-'}</td>
+                    <td>${project.comments || '-'}</td>
+                    <td>
+                        <span class="action-btn" onclick="editProject(${index})">✏️</span>
+                        <span class="action-btn" onclick="deleteProject(${index})">🗑️</span>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+            updateProgress();
+        }
+
+        function toggleComplete(index) {
+            projects[index].completed = !projects[index].completed;
+            saveProject(index);
+            renderTable();
+        }
+
+        function showModal() {
+            document.getElementById('addModal').style.display = 'flex';
+            document.getElementById('projectForm').reset();
+            editIndex = -1;
+            resetRating();
+        }
+
+        function hideModal() {
+            document.getElementById('addModal').style.display = 'none';
+        }
+
+        let editIndex = -1;
+
+        // Save to Google Sheets (via script)
+        function saveProject(index) {
+            const project = projects[index];
+            const url = 'https://script.google.com/macros/s/AKfycbzdrqcN0jV85YPXmiE9-v_I-hObXmNRt5RhA5a3f5E-b_0My7NyoWpV8pTVr5eF6ILY8A/exec';
+            fetch(url, {
+                method: 'POST',
+                mode: 'cors',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'update',
+                    index: index,
+                    project: project
+                })
+            }).catch(error => console.error('Error:', error));
+        }
+
+        document.getElementById('projectForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const project = {
+                'Project Name': formData.get('name'),
+                'Daily Status': false,
+                'Ratings': getRating(),
+                'Website': formData.get('website'),
+                'Main Task': formData.get('mainTask'),
+                'Extra Task': formData.get('extraTask'),
+                'Fundings': formData.get('fundings'),
+                'Investment': formData.get('investment'),
+                'F.Cet': formData.get('faucet'),
+                'Comm': formData.get('comments'),
+                'New Badge': formData.get('newBadge') === 'on'
+            };
+
+            const url = 'https://script.google.com/macros/s/AKfycbzdrqcN0jV85YPXmiE9-v_I-hObXmNRt5RhA5a3f5E-b_0My7NyoWpV8pTVr5eF6ILY8A/exec';
+            fetch(url, {
+                method: 'POST',
+                mode: 'cors',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'add',
+                    project: project
+                })
+            }).then(response => response.json())
+              .then(data => {
+                  if (data.status === 'success') {
+                      hideModal();
+                      loadProjects(); // Refresh data
+                  } else {
+                      console.error('Error from Apps Script:', data.message);
+                  }
+              }).catch(error => console.error('Error:', error));
+        });
+
+        function editProject(index) {
+            editIndex = index;
+            const project = projects[index];
+            showModal();
+            const form = document.getElementById('projectForm');
+            form.name.value = project.name;
+            form.website.value = project.website;
+            form.mainTask.value = project.mainTask;
+            form.extraTask.value = project.extraTask || '';
+            form.fundings.value = project.fundings || '';
+            form.investment.value = project.investment;
+            form.faucet.value = project.faucet || '';
+            form.comments.value = project.comments || '';
+            form.newBadge.checked = project.newBadge;
+            setRating(project.rating);
+        }
+
+        function deleteProject(index) {
+            const url = 'https://script.google.com/macros/s/AKfycbzdrqcN0jV85YPXmiE9-v_I-hObXmNRt5RhA5a3f5E-b_0My7NyoWpV8pTVr5eF6ILY8A/exec';
+            fetch(url, {
+                method: 'POST',
+                mode: 'cors',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'delete',
+                    index: index
+                })
+            }).then(response => response.json())
+              .then(data => {
+                  if (data.status === 'success') {
+                      loadProjects();
+                  } else {
+                      console.error('Error from Apps Script:', data.message);
+                  }
+              }).catch(error => console.error('Error:', error));
+        }
+
+        const stars = document.querySelectorAll('#ratingInput .star');
+        stars.forEach(star => {
+            star.addEventListener('click', () => {
+                const value = parseInt(star.dataset.value);
+                setRating(value);
+            });
+        });
+
+        function setRating(value) {
+            stars.forEach(star => {
+                star.classList.toggle('filled', parseInt(star.dataset.value) <= value);
+            });
+        }
+
+        function getRating() {
+            return Array.from(stars).filter(star => star.classList.contains('filled')).length;
+        }
+
+        function resetRating() {
+            stars.forEach(star => star.classList.remove('filled'));
+        }
+
+        function checkReset() {
+            const now = new Date();
+            const istOffset = 5.5 * 60 * 60 * 1000;
+            const istTime = new Date(now.getTime() + istOffset);
+            const nextReset = new Date(istTime);
+            nextReset.setHours(6, 0, 0, 0);
+            if (istTime.getHours() >= 6) nextReset.setDate(nextReset.getDate() + 1);
+
+            const timeToReset = nextReset - istTime;
+            setTimeout(() => {
+                projects.forEach((project, index) => {
+                    if (project.completed) {
+                        project.completed = false;
+                        saveProject(index);
+                    }
+                });
+                loadProjects();
+                checkReset();
+            }, timeToReset);
+        }
+
+        loadProjects();
+        checkReset();
+    </script>
+</body>
+</html>
