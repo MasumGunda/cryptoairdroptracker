@@ -234,11 +234,7 @@
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
             transition: transform 0.3s ease, box-shadow 0.3s ease;
             font-size: 14px;
-            display: none; /* Initially hidden */
-        }
-
-        .add-btn.visible {
-            display: block; /* Show only when authorized */
+            display: block; /* Always visible, auth on click */
         }
 
         .add-btn:hover {
@@ -374,12 +370,85 @@
 
         .auth-content {
             background: #fff;
-            padding: 20px;
-            border-radius: 15px;
+            padding: 25px;
+            border-radius: 10px;
             width: 90%;
             max-width: 400px;
             text-align: center;
-            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            position: relative;
+        }
+
+        .auth-content h2 {
+            font-size: 20px;
+            color: #1a73e8;
+            margin-bottom: 15px;
+        }
+
+        .auth-content p {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 15px;
+        }
+
+        .auth-input-group {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .auth-input-group input {
+            width: 100%;
+            padding: 12px 40px 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        .auth-input-group input:focus {
+            border-color: #1a73e8;
+            outline: none;
+        }
+
+        .auth-input-group .toggle-password {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            font-size: 16px;
+            color: #666;
+        }
+
+        .auth-input-group .toggle-password:hover {
+            color: #1a73e8;
+        }
+
+        .auth-feedback {
+            font-size: 12px;
+            color: #28a745;
+            margin-top: 5px;
+            display: none;
+        }
+
+        .auth-feedback.error {
+            color: #dc3545;
+        }
+
+        .auth-content button {
+            width: 100%;
+            padding: 12px;
+            background: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s ease;
+        }
+
+        .auth-content button:hover {
+            background: #1557b0;
         }
 
         footer {
@@ -404,6 +473,7 @@
             .airdrop-emoji { width: 20px; height: 20px; }
             .action-btn { font-size: 16px; margin: 0 3px; }
             .auth-content { width: 90%; padding: 15px; }
+            .auth-content h2 { font-size: 18px; }
         }
 
         @media (max-width: 480px) {
@@ -469,7 +539,7 @@
                 <tbody id="projectTable"></tbody>
             </table>
         </div>
-        <button class="add-btn" id="addBtn" onclick="showModal()">Add New Project</button>
+        <button class="add-btn" id="addBtn" onclick="showAuthModal()">Add New Project</button>
     </div>
 
     <div class="modal" id="addModal">
@@ -534,8 +604,12 @@
     <div class="auth-modal" id="authModal">
         <div class="auth-content">
             <h2>Authorization Required</h2>
-            <p>Enter the secret key to access the "Add New Project" feature:</p>
-            <input type="password" id="authKey" placeholder="Secret Key" style="width: 80%; padding: 10px; margin: 10px 0;">
+            <p>Please enter the secret key to proceed.</p>
+            <div class="auth-input-group">
+                <input type="password" id="authKey" placeholder="Enter Secret Key">
+                <span class="toggle-password" onclick="togglePassword()">👁️</span>
+            </div>
+            <div id="authFeedback" class="auth-feedback"></div>
             <button onclick="authenticate()">Submit</button>
         </div>
     </div>
@@ -547,21 +621,40 @@
     <script>
         let projects = [];
         let isAuthorized = false;
-        const SECRET_KEY = '852096@Rishu'; // Your secret key set here
+        const SECRET_KEY = '852096@Rishu'; // Your secret key
 
-        // Show auth modal on page load
-        window.onload = function() {
+        function togglePassword() {
+            const passwordInput = document.getElementById('authKey');
+            const toggleIcon = document.querySelector('.toggle-password');
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleIcon.textContent = '🙈';
+            } else {
+                passwordInput.type = 'password';
+                toggleIcon.textContent = '👁️';
+            }
+        }
+
+        function showAuthModal() {
             document.getElementById('authModal').style.display = 'flex';
-        };
+            document.getElementById('authKey').value = '';
+            document.getElementById('authFeedback').style.display = 'none';
+        }
 
         function authenticate() {
             const inputKey = document.getElementById('authKey').value;
+            const feedback = document.getElementById('authFeedback');
             if (inputKey === SECRET_KEY) {
                 isAuthorized = true;
                 document.getElementById('authModal').style.display = 'none';
-                document.getElementById('addBtn').classList.add('visible');
+                document.getElementById('addModal').style.display = 'flex';
+                feedback.style.display = 'block';
+                feedback.textContent = 'Authentication successful!';
+                feedback.className = 'auth-feedback';
             } else {
-                alert('Incorrect key! Try again.');
+                feedback.style.display = 'block';
+                feedback.textContent = 'Incorrect key! Please try again.';
+                feedback.className = 'auth-feedback error';
             }
         }
 
@@ -572,7 +665,6 @@
                 const csvText = await response.text();
                 console.log('Raw CSV data:', csvText);
 
-                // Parse CSV manually
                 const rows = csvText.trim().split('\n').map(row => {
                     const values = [];
                     let currentValue = '';
@@ -580,14 +672,11 @@
 
                     for (let i = 0; i < row.length; i++) {
                         const char = row[i];
-                        if (char === '"') {
-                            insideQuotes = !insideQuotes;
-                        } else if (char === ',' && !insideQuotes) {
+                        if (char === '"') insideQuotes = !insideQuotes;
+                        else if (char === ',' && !insideQuotes) {
                             values.push(currentValue.trim());
                             currentValue = '';
-                        } else {
-                            currentValue += char;
-                        }
+                        } else currentValue += char;
                     }
                     values.push(currentValue.trim());
                     return values;
@@ -692,19 +781,9 @@
             renderTable();
         }
 
-        function showModal() {
-            if (!isAuthorized) {
-                alert('Please authorize first!');
-                return;
-            }
-            document.getElementById('addModal').style.display = 'flex';
-            document.getElementById('projectForm').reset();
-            editIndex = -1;
-            resetRating();
-        }
-
         function hideModal() {
             document.getElementById('addModal').style.display = 'none';
+            document.getElementById('authModal').style.display = 'none';
         }
 
         let editIndex = -1;
@@ -715,9 +794,7 @@
             fetch(url, {
                 method: 'POST',
                 mode: 'no-cors',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     action: 'update',
                     index: index + 1,
@@ -766,13 +843,8 @@
             fetch(url, {
                 method: 'POST',
                 mode: 'no-cors',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    action: 'add',
-                    project: project
-                })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'add', project })
             }).then(() => {
                 console.log('Add request sent successfully');
                 hideModal();
@@ -783,7 +855,12 @@
         function editProject(index) {
             editIndex = index;
             const project = projects[index];
-            showModal();
+            if (!isAuthorized) {
+                showAuthModal();
+                return;
+            }
+            document.getElementById('addModal').style.display = 'flex';
+            document.getElementById('projectForm').reset();
             document.querySelector('input[name="name"]').value = project.name;
             document.querySelector('textarea[name="website"]').value = project.website;
             document.querySelector('textarea[name="mainTask"]').value = project.mainTask;
@@ -801,13 +878,8 @@
             fetch(url, {
                 method: 'POST',
                 mode: 'no-cors',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    action: 'delete',
-                    index: index + 1
-                })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'delete', index: index + 1 })
             }).then(() => {
                 console.log('Delete request sent successfully');
                 setTimeout(loadProjects, 1000);
@@ -823,9 +895,7 @@
         });
 
         function setRating(value) {
-            stars.forEach(star => {
-                star.classList.toggle('filled', parseInt(star.dataset.value) <= value);
-            });
+            stars.forEach(star => star.classList.toggle('filled', parseInt(star.dataset.value) <= value));
         }
 
         function getRating() {
